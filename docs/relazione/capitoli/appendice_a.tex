@@ -1,0 +1,54 @@
+\chapter{Dalla Versione d'Esame alla Versione Attuale}
+\label{app:modifiche}
+
+La versione consegnata all'esame è conservata nel repository con l'etichetta \codice{exam-2024} e si può compilare con \codice{make exam}, che la costruisce come facevano gli script del corso. Questa appendice riassume le modifiche al template fornito dal docente e le differenze tra la versione d'esame e quella attuale.
+
+\section{Modifiche al Template}
+
+Il template del corso era stato pensato per un altro algoritmo e prevedeva un vettore di etichette in ingresso e un parametro \codice{k}, il numero di elementi da estrarre. Già nella versione d'esame erano stati aggiunti i parametri \textit{MinPts} ed $\varepsilon$ alla struttura dei parametri e alla riga di comando, con i relativi controlli, e la funzione di lettura era stata estesa per completare le righe del dataset a un multiplo di quattro valori (Sezione~\ref{sec:padding}). Il file delle etichette e il parametro \codice{k} erano però rimasti obbligatori, benché ignorati: il valore di \codice{k} veniva sovrascritto con il numero di punti. La versione attuale conserva il formato dei file del template ed elimina i parametri inutilizzati.
+
+\section{Errori Corretti}
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabularx}{\textwidth}{XX}
+        \toprule
+        \textbf{Problema nella versione d'esame} & \textbf{Correzione} \\
+        \midrule
+        OpenMP mai attivato: mancava \codice{-fopenmp} negli script di compilazione &
+        quattro varianti prodotte dal \codice{Makefile}, con e senza \codice{-fopenmp} \\
+        Kernel a 64 bit: registri ripristinati in ordine errato, \codice{RBX} alterato &
+        kernel che usano solo registri non da preservare \\
+        Kernel a 32 bit: risultato restituito tramite una variabile globale, condivisa tra i thread &
+        cella sullo stack del thread \\
+        Tempo misurato con \codice{clock()}, cioè come tempo di CPU sommato su tutti i thread &
+        tempo reale con \codice{clock\_gettime} \\
+        File delle etichette con un elemento in più, letto oltre la fine del vettore &
+        un'etichetta per punto \\
+        Controllo dei limiti in \codice{getPuntiValue} con \codice{>} invece di \codice{>=}; estrazione da lista vuota non controllata &
+        nuova \codice{PointList}, usata solo in modi che non richiedono controlli \\
+        Ricorsione infinita nel Ball Tree con più di \codice{LEAFSIZE} punti identici &
+        nodo foglia quando il raggio è nullo \\
+        Memoria non liberata: albero, matrice originale dopo il padding, centroidi &
+        ogni allocazione liberata; verificato con Valgrind \\
+        Mix di istruzioni AVX e SSE senza \codice{vzeroupper} &
+        solo istruzioni VEX e \codice{vzeroupper} all'uscita \\
+        Intestazioni, nomi e messaggi ereditati da altri progetti (\codice{cfs}, \enquote{Attention mechanism}) &
+        nomi e commenti riscritti \\
+        \bottomrule
+    \end{tabularx}
+    \caption{Errori della versione d'esame e relative correzioni.}
+    \label{tab:errori}
+\end{table}
+
+\section{Modifiche Strutturali}
+
+\begin{itemize}
+    \item \textbf{Un solo albero di sorgenti} al posto di quattro copie del programma, diviso in moduli e compilato da un \codice{Makefile}; commenti e identificatori in inglese.
+    \item \textbf{Algoritmo in due fasi}, con la prima fase parallela e la regola di assegnazione dei punti di confine di scikit-learn.
+    \item \textbf{Ball Tree} costruito per partizionamento sul posto, in parallelo, con i punti copiati in ordine di foglia e l'accettazione in blocco delle sfere interamente contenute nell'intorno.
+    \item \textbf{Kernel SIMD} con interfaccia a puntatori, distanza al quadrato e uso anche per i centroidi.
+    \item \textbf{Riga di comando} con opzioni per scegliere indice, kernel e numero di thread, e statistiche in formato JSON.
+    \item \textbf{Verifica automatica}: script che confrontano le etichette con scikit-learn su casi tipici e limite, eseguiti anche dall'integrazione continua a ogni modifica, e script che riproducono tutte le misure di questa relazione.
+\end{itemize}

@@ -1,0 +1,20 @@
+% Speedup rispetto a un thread (dati/threads.csv)
+\begin{tikzpicture}
+\begin{axis}[
+    relazione,
+    xmin=1, xmax=8, ymin=0, ymax=8.5,
+    xtick={1,...,8},
+    xlabel={Thread OpenMP},
+    ylabel={Speedup rispetto a 1 thread},
+    legend pos=north west,
+]
+\addplot[muto, dashed, line width=0.8pt, forget plot] table[col sep=comma, x=threads, y=ideale]{\dati{threads}}
+    node[pos=0.93, above left, font=\footnotesize, text=muto] {ideale};
+\draw[muto, dotted, line width=0.8pt] (axis cs:4,0) -- (axis cs:4,8.5)
+    node[pos=0.97, right, font=\footnotesize, text=muto] {4 core fisici};
+\addplot[serie1, mark=*] table[col sep=comma, x=threads, y=balltree]{\dati{threads}};
+\addlegendentry{Ball Tree, 80.000 punti}
+\addplot[serie2, mark=square*] table[col sep=comma, x=threads, y=linear]{\dati{threads}};
+\addlegendentry{Ricerca esaustiva, 20.000 punti}
+\end{axis}
+\end{tikzpicture}

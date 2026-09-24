@@ -1,0 +1,217 @@
+\chapter{Validazione e Analisi Sperimentale}
+\label{cap:sperimentazione}
+
+\section{Ambiente e Metodologia}
+
+Tutte le misure sono state eseguite sulla macchina descritta nella Tabella~\ref{tab:ambiente} e sono riproducibili con \codice{make bench}, che genera i dataset, esegue gli esperimenti e salva i risultati grezzi nella cartella \codice{results}; lo script \codice{report\_data.py} ne ricava le tabelle e i grafici di questo capitolo.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabularx}{\textwidth}{lX}
+        \toprule
+        \tabella{ambiente}
+        \bottomrule
+    \end{tabularx}
+    \caption{Ambiente delle misure.}
+    \label{tab:ambiente}
+\end{table}
+
+\subsection*{Dataset}
+
+Salvo dove indicato, i dataset sono generati con la funzione \codice{make\_blobs} di scikit-learn: otto cluster gaussiani con deviazione standard unitaria, a cui si aggiunge un 5\% di punti distribuiti uniformemente nel riquadro che li contiene, a fare da rumore. \textit{MinPts} vale 5 e $\varepsilon$ è scelto con l'euristica del lavoro originale~\cite{ester1996}, basata sulla distanza di ogni punto dal suo quarto vicino: si prende il valore che lascia il 90\% dei punti al di sotto, così che circa il 90\% dei punti sia core. Il dataset usato per l'esame, invece, contiene 5000 punti distribuiti uniformemente nell'ipercubo unitario a 50 dimensioni, con $\varepsilon = 5$.
+
+\subsection*{Misure}
+
+Ogni valore è la mediana di cinque esecuzioni. Il tempo è quello misurato dal programma per il solo clustering, dalla costruzione dell'indice alla fine dell'espansione, con la lettura del file esclusa; per scikit-learn è il tempo della chiamata a \codice{fit}. La macchina è un portatile, con frequenza del processore variabile in base al carico e alla temperatura: le misure ripetute differiscono tipicamente di qualche punto percentuale, e minimo e massimo di ogni serie sono riportati nei file dei risultati.
+
+\section{Correttezza}
+
+Lo script \codice{tests/run\_tests.py}, eseguito da \codice{make test} e dall'integrazione continua a ogni modifica, confronta le etichette prodotte da ogni eseguibile con quelle di scikit-learn su nove casi:
+
+\begin{itemize}
+    \item tre dataset con cluster in 2, 13 e 64 dimensioni, di cui la seconda non multipla di quattro, per verificare il padding;
+    \item il dataset uniforme dell'esame con $\varepsilon = 5$, un unico cluster, e con $\varepsilon = 1{,}2$, tutto rumore;
+    \item 300 punti identici, il caso che nella versione d'esame causava la ricorsione infinita;
+    \item $\textit{MinPts} = 1$, in cui ogni punto è core;
+    \item dataset di uno e di tre punti, più piccoli di un registro SIMD.
+\end{itemize}
+
+Ogni caso è eseguito con la ricerca esaustiva e con il Ball Tree, con foglie da 1 e da 32 punti, con i kernel SIMD e con quelli in C, e per le varianti OpenMP con 1 e con 4 thread. Per le varianti a 64 bit le etichette devono coincidere con quelle di scikit-learn punto per punto, e coincidono in tutti i casi; per le varianti a 32 bit, che lavorano in singola precisione, è ammessa una differenza fino allo 0,2\% dei punti, per i motivi discussi nel Capitolo~\ref{cap:limiti}, ma nei casi di prova le etichette coincidono esattamente anche a 32 bit. Lo script verifica anche la gestione degli errori della riga di comando. Il programma è stato inoltre eseguito con Valgrind, senza errori di accesso alla memoria né memoria non liberata, e compilato con l'\emph{Undefined Behavior Sanitizer} di GCC, senza segnalazioni.
+
+\section{Confronto tra le Varianti}
+\label{sec:varianti}
+
+La Tabella~\ref{tab:varianti-blobs} e la Figura~\ref{fig:varianti} confrontano le varianti del programma sul dataset di 20.000 punti in 16 dimensioni, aggiungendo un'ottimizzazione alla volta, insieme alla versione d'esame e a scikit-learn.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Variante} & \textbf{Tempo (s)} & \textbf{Speedup} & \textbf{Distanze calcolate} \\
+        \midrule
+        \tabella{varianti_blobs}
+        \bottomrule
+    \end{tabular}
+    \caption{Varianti a confronto su 20.000 punti in 16 dimensioni; lo speedup è rispetto alla versione d'esame.}
+    \label{tab:varianti-blobs}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \input{grafici/varianti}
+    \caption{Tempo di esecuzione delle varianti su 20.000 punti in 16 dimensioni.}
+    \label{fig:varianti}
+\end{figure}
+
+La lettura della tabella dall'alto verso il basso mostra il contributo di ciascuna tecnica:
+
+\begin{itemize}
+    \item \textbf{Kernel SIMD.} A parità di algoritmo, i kernel AVX riducono il tempo di 1,7 volte con la ricerca esaustiva e di 1,4 volte con il Ball Tree, dove una parte del tempo va nella visita dell'albero e non nel calcolo delle distanze.
+    \item \textbf{Ball Tree.} L'indice calcola sei volte meno distanze della ricerca esaustiva e riduce il tempo di quattro volte. Da solo, anche senza SIMD, porta il programma a quasi tre volte la velocità della versione d'esame.
+    \item \textbf{OpenMP.} Con quattro thread, uno per core fisico, il tempo si riduce di 3,3 volte; con otto thread di 3,8 volte. Il programma completo è 16 volte più veloce della versione d'esame.
+    \item \textbf{Confronto con scikit-learn.} Su un solo thread il programma è più lento di scikit-learn del 34\%. scikit-learn con tutti i thread (\codice{n\_jobs=-1}) migliora di poco, perché la sua espansione dei cluster è sequenziale e le interrogazioni sono parallelizzate solo in parte. Con otto thread il programma è 2,8 volte più veloce.
+\end{itemize}
+
+La versione d'esame, compilata con \codice{-O0} come prescritto dal corso, impiega poco più della ricerca esaustiva con i kernel AVX, benché usi un Ball Tree: le foglie da 300 punti e le numerose allocazioni ne annullano quasi del tutto il vantaggio.
+
+\section{Confronto tra 32 e 64 Bit}
+
+La Tabella~\ref{tab:architetture} confronta le due architetture sullo stesso dataset: a sinistra la variante a 32 bit, con kernel SSE in singola precisione, a destra quella a 64 bit, con kernel AVX in doppia precisione. L'ultima colonna è il rapporto tra i tempi: un valore minore di uno indica che la variante a 64 bit è più veloce.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Variante} & \textbf{32 bit, SSE (s)} & \textbf{64 bit, AVX (s)} & \textbf{Rapporto} \\
+        \midrule
+        \tabella{architetture}
+        \bottomrule
+    \end{tabular}
+    \caption{Variante a 32 bit e variante a 64 bit su 20.000 punti in 16 dimensioni.}
+    \label{tab:architetture}
+\end{table}
+
+La variante a 64 bit richiede dal 14 al 27\% di tempo in meno in tutti i casi, benché lavori in doppia precisione e quindi con il doppio dei dati. Le due varianti elaborano lo stesso numero di valori per istruzione, quattro \codice{float} in un registro XMM o quattro \codice{double} in un registro YMM, e la singola precisione non porta quindi alcun vantaggio nel calcolo. Pesano invece due caratteristiche della modalità a 32 bit:
+
+\begin{itemize}
+    \item la convenzione \emph{cdecl} passa gli argomenti sullo stack e restituisce il risultato sullo stack x87, che il codice compilato con \codice{-mfpmath=sse} deve poi riportare in un registro XMM passando per la memoria: ogni distanza attraversa la memoria due volte, nel kernel (\codice{movss} e \codice{fld}) e nel chiamante (\codice{fstp} e \codice{movss});
+    \item l'architettura a 32 bit dispone di 8 registri generali e 8 registri XMM, contro 16 e 16, e il compilatore deve salvare in memoria più variabili, come mostra il rallentamento anche delle varianti in C.
+\end{itemize}
+
+Una variante a 32 bit che usasse AVX in singola precisione elaborerebbe otto valori per istruzione, ma il corso prescriveva le sole istruzioni SSE per questa architettura.
+
+\section{Il Caso della Versione d'Esame}
+\label{sec:caso-esame}
+
+La relazione d'esame osservava che il Ball Tree non portava miglioramenti significativi rispetto alla ricerca esaustiva, e ne attribuiva la causa al costo di costruzione, alla dimensione delle foglie e allo sbilanciamento dell'albero. La causa principale era in realtà il dataset. In un ipercubo unitario a 50 dimensioni la distanza tra due punti casuali si concentra attorno a $\sqrt{50/6} \approx 2{,}9$: nel dataset dell'esame la media è 2,88, la deviazione standard 0,24 e la distanza massima 4,16. Con $\varepsilon = 5$ ogni punto ha quindi per vicini tutti gli altri, e il risultato è un unico cluster. Nessuna sfera dell'albero può essere disgiunta dall'intorno, e un indice che sa solo escludere le regioni lontane non può escludere nulla.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Variante} & \textbf{Tempo (s)} & \textbf{Speedup} & \textbf{Distanze calcolate} \\
+        \midrule
+        \tabella{varianti_esame}
+        \bottomrule
+    \end{tabular}
+    \caption{Varianti a confronto sul dataset dell'esame: 5000 punti uniformi in 50 dimensioni, $\varepsilon = 5$.}
+    \label{tab:varianti-esame}
+\end{table}
+
+La Tabella~\ref{tab:varianti-esame} mostra l'effetto dell'accettazione in blocco delle sfere interamente contenute nell'intorno: per quasi ogni interrogazione la sfera della radice cade tutta dentro l'intorno, e il Ball Tree calcola 5053 distanze invece di 25 milioni. Il tempo che resta è speso quasi tutto nel copiare gli intorni, 25 milioni di indici e 100~MB di memoria, ed è per questo che i kernel SIMD non vi incidono. Con la ricerca esaustiva, invece, il vantaggio dei kernel AVX sale a 2,3 volte, perché con 52 valori per riga ogni chiamata del kernel esegue 13 iterazioni e il costo fisso della chiamata pesa meno.
+
+Il caso è istruttivo anche per un altro motivo: un dataset in cui tutti i punti formano un solo cluster non può rivelare errori nell'assegnazione delle etichette. Per questo i test e le misure di questo capitolo usano dataset con cluster reali e rumore, e il dataset dell'esame compare solo come caso limite.
+
+\section{Scalabilità con i Thread}
+
+La Figura~\ref{fig:threads} riporta lo speedup della prima fase parallela rispetto all'esecuzione su un thread, per il Ball Tree su 80.000 punti e per la ricerca esaustiva su 20.000 punti, entrambi in 16 dimensioni.
+
+\begin{figure}[H]
+    \centering
+    \input{grafici/threads}
+    \caption{Speedup al crescere dei thread OpenMP. La linea tratteggiata è lo speedup ideale, la linea punteggiata il numero di core fisici.}
+    \label{fig:threads}
+\end{figure}
+
+Fino a quattro thread, uno per core fisico, lo speedup è di 3,0 per il Ball Tree e di 3,3 per la ricerca esaustiva. Non raggiunge il valore ideale per due motivi. Il primo è la frequenza del processore, che con un solo core attivo sale fino a 4~GHz e scende quando lavorano tutti i core. Il secondo, per il Ball Tree, è l'accesso alla memoria meno regolare della visita dell'albero, con i core in competizione per la cache condivisa. Oltre quattro thread l'\emph{hyper-threading} esegue due thread sullo stesso core fisico e aggiunge un altro 20--25\%, fino a 3,8 e 3,9 con otto thread: i due thread di un core si alternano sulle stesse unità di calcolo e ne coprono i tempi di attesa.
+
+La parte sequenziale è trascurabile: l'espansione dei cluster richiede circa 20~ms su 80.000 punti, lo 0,2\% del tempo su un thread e l'1\% su otto, e la costruzione del Ball Tree passa da 104 a 72~ms. Secondo la legge di Amdahl, una parte sequenziale pari all'1\% del tempo pone allo speedup un limite teorico di 100.
+
+\section{Scalabilità con il Numero di Punti}
+
+La Figura~\ref{fig:scaling} riporta il tempo di esecuzione al crescere del numero di punti da 5000 a 80.000, in 16 dimensioni e in scala logaritmica su entrambi gli assi, dove una retta di pendenza 2 indica un costo quadratico. La ricerca esaustiva si ferma a 40.000 punti, perché con 80.000 richiederebbe circa 40 secondi per esecuzione.
+
+\begin{figure}[H]
+    \centering
+    \input{grafici/scaling}
+    \caption{Tempo di esecuzione al crescere del numero di punti, in 16 dimensioni.}
+    \label{fig:scaling}
+\end{figure}
+
+Tutte le curve hanno pendenza vicina a 2, compresa quella di scikit-learn: raddoppiando i punti il tempo quadruplica anche con il Ball Tree, e il numero di distanze calcolate passa da 4,3 milioni a un miliardo. Non è un difetto dell'indice ma una proprietà dei dati: con un numero fisso di cluster, raddoppiare i punti raddoppia la densità e quindi la dimensione media degli intorni, mentre $\varepsilon$ scelto con l'euristica diminuisce di poco. La dimensione complessiva del risultato cresce quindi in modo quadratico, e nessun algoritmo che elenchi gli intorni può fare meglio, come osservano Schubert et al.~\cite{schubert2017}. Il Ball Tree abbassa la costante, di un fattore compreso tra 3,5 e 5 rispetto alla ricerca esaustiva, e OpenMP la abbassa di un ulteriore fattore compreso tra 3 e 4.
+
+\section{Dimensione delle Foglie}
+
+Il parametro \textit{leaf\_size} regola un compromesso: foglie piccole producono un albero profondo, con più nodi da visitare e più distanze dai centri da calcolare; foglie grandi producono un albero basso ma costringono a esaminare molti punti lontani in ogni foglia raggiunta. La Figura~\ref{fig:foglie} riporta il tempo in funzione della dimensione delle foglie, diviso per il tempo migliore di ciascun dataset.
+
+\begin{figure}[H]
+    \centering
+    \input{grafici/leaf_size}
+    \caption{Tempo al variare della dimensione massima delle foglie, relativo al valore migliore di ciascun dataset.}
+    \label{fig:foglie}
+\end{figure}
+
+Il valore migliore dipende dalla dimensionalità: 16 punti in due dimensioni, 128 in 16 e in 64 dimensioni. In poche dimensioni le sfere sono piccole e ben separate, e conviene scendere in profondità per escluderne di più; in molte dimensioni la potatura è comunque limitata e conviene ridurre il costo della visita. Il valore predefinito, 32, resta entro l'8\% dal migliore in tutti e tre i casi, mentre sia 128 sia valori molto piccoli penalizzano uno dei casi di oltre il 40\%. Le 300 foglie della versione d'esame erano un valore ragionevole in molte dimensioni, ma avrebbero raddoppiato il tempo nel caso bidimensionale.
+
+\section{Effetto della Dimensionalità}
+\label{sec:esp-dimensioni}
+
+La Tabella~\ref{tab:dimensioni} e la Figura~\ref{fig:dimensioni} confrontano il Ball Tree con la ricerca esaustiva su 20.000 punti al variare della dimensione, da 2 a 128.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{rrrrrr}
+        \toprule
+        $d$ & \textbf{Esaustiva (s)} & \textbf{Ball Tree (s)} & \textbf{Speedup} & \textbf{Distanze} & \textbf{Profondità} \\
+        \midrule
+        \tabella{dimensioni}
+        \bottomrule
+    \end{tabular}
+    \caption{Ball Tree e ricerca esaustiva al variare della dimensione, su 20.000 punti; la colonna Distanze riporta le distanze calcolate dal Ball Tree in percentuale di quelle della ricerca esaustiva.}
+    \label{tab:dimensioni}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \input{grafici/dimensioni}
+    \caption{Distanze calcolate dal Ball Tree, in percentuale di quelle della ricerca esaustiva, al variare della dimensione.}
+    \label{fig:dimensioni}
+\end{figure}
+
+In due dimensioni il Ball Tree calcola l'1,3\% delle distanze ed è 21 volte più veloce della ricerca esaustiva. La percentuale cresce con la dimensione, com'è tipico degli indici spaziali: in molte dimensioni le distanze tendono a somigliarsi e le sfere si sovrappongono. La crescita però si arresta attorno al 20\% invece di proseguire fino al 100\%. Il motivo sta nella struttura dei dati: gli otto cluster restano ben separati in qualunque dimensione, e l'albero continua a escludere in blocco i cluster diversi da quello del punto interrogato, anche quando all'interno di un cluster non riesce più a potare. Con otto cluster di dimensioni simili resta da esaminare circa un ottavo dei punti, più il rumore e i nodi a cavallo di due cluster. Su dati senza alcuna struttura, come il dataset uniforme dell'esame con un $\varepsilon$ più piccolo, la potatura in alta dimensione sarebbe molto minore.
+
+\section{SIMD Manuale e Ottimizzazioni del Compilatore}
+\label{sec:esp-compilatore}
+
+La Tabella~\ref{tab:compilatore} confronta i kernel in C e quelli SIMD con i due livelli di ottimizzazione: \codice{-O0}, prescritto dal template del corso, e \codice{-O2}, usato dalla versione attuale.
+
+\begin{table}[H]
+    \centering
+    \small
+    \begin{tabular}{llrrr}
+        \toprule
+        \textbf{Indice} & \textbf{Livello} & \textbf{C (s)} & \textbf{SIMD (s)} & \textbf{Vantaggio} \\
+        \midrule
+        \tabella{compilatore}
+        \bottomrule
+    \end{tabular}
+    \caption{Kernel in C e kernel SIMD con i livelli di ottimizzazione \codice{-O0} e \codice{-O2}, su 20.000 punti in 16 dimensioni.}
+    \label{tab:compilatore}
+\end{table}
+
+Con \codice{-O0} i kernel SIMD sembrano da 4,3 a 5,6 volte più veloci, ma il confronto è sbilanciato: senza ottimizzazioni il compilatore rilegge e riscrive in memoria ogni variabile a ogni iterazione, e la versione in C è molto più lenta del necessario. Con \codice{-O2} il vantaggio scende a 1,5--1,7 volte, ed è il valore che misura davvero il contributo del codice scritto a mano: nasce dalle quattro somme parziali indipendenti che il compilatore non può introdurre da sé (Sezione~\ref{sec:compilatore}). Anche il resto del programma beneficia delle ottimizzazioni: la visita del Ball Tree e la gestione delle liste, che non usano i kernel, fanno scendere del 40\% il tempo del Ball Tree con i kernel SIMD tra \codice{-O0} e \codice{-O2}.

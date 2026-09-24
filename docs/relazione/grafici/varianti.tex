@@ -1,0 +1,24 @@
+% Tempo di ogni variante sul dataset di 20.000 punti (dati/varianti_blobs.csv)
+\begin{tikzpicture}
+\begin{axis}[
+    relazione,
+    xbar,
+    width=0.72\textwidth,
+    height=0.6\textwidth,
+    bar width=8pt,
+    xmin=0,
+    xmax=3.9,
+    enlarge y limits=0.07,
+    xlabel={Tempo di esecuzione (s)},
+    ytick=data,
+    yticklabels from table={\dati{varianti_blobs}}{variante},
+    table/col sep=semicolon,
+    y tick label style={font=\footnotesize, color=inchiostro},
+    ymajorgrids=false,
+    nodes near coords,
+    nodes near coords style={font=\footnotesize, color=inchiostro,
+        /pgf/number format/.cd, fixed, fixed zerofill, precision=2, use comma},
+]
+\addplot[fill=serie1, draw=none] table[col sep=semicolon, x=tempo, y expr=\coordindex]{\dati{varianti_blobs}};
+\end{axis}
+\end{tikzpicture}

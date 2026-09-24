@@ -1,0 +1,24 @@
+\chapter{Conclusioni}
+
+Il progetto ha realizzato DBSCAN in C e assembly x86 e lo ha accelerato combinando tre tecniche, ciascuna rivolta a un aspetto diverso del costo delle interrogazioni di vicinato. Sul dataset di riferimento, 20.000 punti in 16 dimensioni, il programma completo è sedici volte più veloce della versione consegnata all'esame e 2,8 volte più veloce di scikit-learn, producendo le stesse etichette punto per punto.
+
+\section*{Il contributo di ciascuna tecnica}
+
+\begin{itemize}
+    \item \textbf{La struttura dati} è la leva più efficace: il Ball Tree riduce da tre a cinque volte il tempo rispetto alla ricerca esaustiva, e sui dati con $\varepsilon$ grande, grazie all'accettazione in blocco delle sfere, di diversi ordini di grandezza. Anche i dettagli di implementazione contano: la sola copia dei punti in ordine di foglia riduce il tempo del 20--40\%, un effetto paragonabile a quello dei kernel AVX, che con il Ball Tree lo riducono del 30\%.
+    \item \textbf{Le istruzioni SIMD} riducono il costo di ogni distanza di 1,4--2,3 volte, di più quando le righe sono lunghe. Anche con \codice{-O2}, dove il compilatore vettorizza da sé, il codice scritto a mano conserva un vantaggio, perché può riordinare le somme in virgola mobile, cosa che al compilatore non è permessa.
+    \item \textbf{OpenMP} porta uno speedup di 3 sui quattro core fisici e di quasi 4 con l'\emph{hyper-threading}, ma solo dopo aver riformulato l'algoritmo: il parallelismo va cercato al livello delle interrogazioni indipendenti e non all'interno della singola interrogazione, dove il costo della sincronizzazione supera il lavoro da distribuire.
+\end{itemize}
+
+\section*{Cosa ha insegnato la revisione}
+
+La revisione della versione d'esame ha mostrato quanto una misura possa ingannare. OpenMP non era mai stato attivato e il tempo era misurato come tempo di CPU, quindi ogni considerazione sulla parallelizzazione era priva di riscontro. Il dataset di prova conteneva un solo cluster, quindi non poteva rivelare errori nelle etichette né mostrare i benefici dell'indice. Due errori nei kernel assembly, la violazione della convenzione di chiamata a 64 bit e la variabile globale condivisa a 32 bit, erano invisibili nelle condizioni in cui il programma veniva provato. Il confronto sistematico con un'implementazione di riferimento su casi tipici e limite, eseguito automaticamente a ogni modifica, è ciò che rende affidabili i risultati di questa versione.
+
+\section*{Sviluppi futuri}
+
+Gli sviluppi più promettenti, discussi nel Capitolo~\ref{cap:limiti}, sono tre:
+\begin{itemize}
+    \item ridurre la memoria occupata dagli intorni, e rendere parallela anche l'espansione, con una struttura \emph{union-find} sui punti core;
+    \item usare più accumulatori nei kernel;
+    \item scegliere l'indice spaziale in base alla dimensionalità dei dati.
+\end{itemize}

@@ -1,0 +1,21 @@
+% Tempo al crescere del numero di punti, d = 16 (dati/scaling.csv)
+\begin{tikzpicture}
+\begin{loglogaxis}[
+    relazione,
+    xlabel={Numero di punti $n$},
+    ylabel={Tempo di esecuzione (s)},
+    xtick={5000,10000,20000,40000,80000},
+    xticklabels={5.000,10.000,20.000,40.000,80.000},
+    legend pos=north west,
+    unbounded coords=discard,
+]
+\addplot[serie2, mark=square*] table[col sep=comma, x=n, y=linear]{\dati{scaling}};
+\addlegendentry{Ricerca esaustiva, AVX}
+\addplot[serie1, mark=*] table[col sep=comma, x=n, y=balltree]{\dati{scaling}};
+\addlegendentry{Ball Tree, AVX}
+\addplot[serie3, mark=triangle*, mark size=3pt] table[col sep=comma, x=n, y=omp8]{\dati{scaling}};
+\addlegendentry{Ball Tree, AVX, 8 thread}
+\addplot[inchiostro, dashed, mark=o] table[col sep=comma, x=n, y=sklearn]{\dati{scaling}};
+\addlegendentry{scikit-learn, 1 thread}
+\end{loglogaxis}
+\end{tikzpicture}

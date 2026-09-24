@@ -1,0 +1,66 @@
+\chapter{Sommario e Introduzione}
+
+\section{Descrizione del Progetto}
+
+Il progetto consiste nell'implementazione dell'algoritmo di clustering \textbf{DBSCAN}~\cite{ester1996} in linguaggio C e assembly x86 e nella sua ottimizzazione su due fronti: il parallelismo a livello di dato, ottenuto con le istruzioni \textbf{SIMD} delle estensioni SSE e AVX, e il parallelismo a livello di thread, ottenuto con \textbf{OpenMP}. Il lavoro è stato svolto per il corso di Architetture e Programmazione dei Sistemi di Elaborazione, a partire dal template fornito dal docente, che stabilisce il formato dei dati di ingresso e i vincoli tecnologici: una versione a 32 bit in singola precisione con istruzioni SSE e una versione a 64 bit in doppia precisione con istruzioni AVX, ciascuna con e senza OpenMP.
+
+\subsection*{Il problema}
+
+DBSCAN raggruppa i punti di un dataset in base alla densità: un punto appartiene a un cluster se nel suo intorno di raggio $\varepsilon$ cadono abbastanza altri punti, e i cluster crescono propagandosi da un punto denso all'altro. A differenza di algoritmi come \emph{k-means}, non richiede di conoscere il numero di cluster, riconosce cluster di forma arbitraria e isola i punti di rumore. Il suo costo è dominato dalle \textbf{interrogazioni di vicinato}: per ogni punto occorre trovare tutti i punti entro distanza $\varepsilon$, e una ricerca esaustiva richiede $n^2$ calcoli di distanza. Sono quindi tre le leve su cui agire:
+
+\begin{enumerate}
+    \item \textbf{calcolare meno distanze}, con una struttura dati spaziale che escluda in blocco le regioni lontane dal punto interrogato: in questo progetto un \emph{Ball Tree};
+    \item \textbf{calcolare ogni distanza più in fretta}, elaborando più coordinate con una sola istruzione SIMD;
+    \item \textbf{calcolare più distanze contemporaneamente}, distribuendo le interrogazioni sui core del processore con OpenMP.
+\end{enumerate}
+
+\subsection*{Soluzione adottata}
+
+Il programma legge un dataset in formato binario, esegue DBSCAN e scrive l'etichetta di ogni punto: l'indice del cluster, a partire da 0, oppure $-1$ per il rumore, la stessa convenzione della libreria \emph{scikit-learn}~\cite{sklearn}. Le scelte principali sono le seguenti:
+
+\begin{itemize}
+    \item l'algoritmo è riformulato in \textbf{due fasi}: prima si calcolano in parallelo gli intorni di tutti i punti, poi si espandono i cluster in modo sequenziale leggendo gli intorni già calcolati;
+    \item le interrogazioni usano un \textbf{Ball Tree}, costruito partizionando sul posto un unico vettore di indici, che esclude le sfere lontane dal punto e accetta in blocco quelle interamente contenute nell'intorno;
+    \item le distanze sono calcolate da \textbf{kernel scritti in assembly}, SSE a 32 bit e AVX a 64 bit, su righe del dataset allineate in memoria e completate con zeri fino a un multiplo di quattro valori;
+    \item OpenMP distribuisce le interrogazioni della prima fase e la costruzione dell'albero; il tempo è misurato come tempo reale trascorso e non come tempo di CPU.
+\end{itemize}
+
+\subsection*{Risultati in sintesi}
+
+Su un dataset di 20.000 punti in 16 dimensioni, con otto cluster e il 5\% di rumore, la versione a 64 bit esegue il clustering in 0,48~s su un singolo thread e in 0,13~s con otto thread, contro 2,03~s della versione consegnata all'esame e 0,36~s di scikit-learn. Le etichette coincidono con quelle di scikit-learn punto per punto su tutti i dataset di prova. Il Capitolo~\ref{cap:sperimentazione} riporta le misure complete.
+
+\subsection*{La versione consegnata e la versione attuale}
+
+La presente relazione descrive la versione del progetto rivista dopo l'esame. La versione consegnata è conservata nel repository con l'etichetta \codice{exam-2024}; la revisione ne ha corretto alcuni errori, tra cui il fatto che OpenMP non venisse mai effettivamente attivato in compilazione, e ne ha ristrutturato il codice. L'Appendice~\ref{app:modifiche} elenca le differenze tra le due versioni.
+
+\section{Organizzazione della Relazione in Capitoli}
+
+Il documento è articolato in otto capitoli, che procedono dall'algoritmo alle scelte implementative e si chiudono con la valutazione sperimentale. Di seguito è fornita una panoramica dei contenuti.
+
+\subsection*{Capitolo 2 --- L'algoritmo DBSCAN}
+
+Il capitolo richiama le definizioni del clustering basato sulla densità e l'algoritmo originale, fissa le convenzioni adottate (etichette, distanza, regola di assegnazione dei punti di confine) e introduce la formulazione in due fasi su cui si basa l'implementazione.
+
+\subsection*{Capitolo 3 --- Architettura del Software e Strutture Dati}
+
+Il capitolo descrive l'organizzazione in moduli, il formato dei file e la disposizione del dataset in memoria, l'array dinamico usato per gli intorni e il Ball Tree, dalla costruzione alle interrogazioni.
+
+\subsection*{Capitolo 4 --- Ottimizzazione mediante Istruzioni SIMD}
+
+Il capitolo presenta i kernel assembly a 32 e a 64 bit, le convenzioni di chiamata che rispettano, i vincoli di allineamento e il confronto con il codice generato dal compilatore.
+
+\subsection*{Capitolo 5 --- Parallelizzazione con OpenMP}
+
+Il capitolo analizza i limiti dell'approccio della versione d'esame e descrive la parallelizzazione adottata: le interrogazioni della prima fase, la costruzione del Ball Tree con i \emph{task} e le ragioni per cui l'espansione resta sequenziale.
+
+\subsection*{Capitolo 6 --- Validazione e Analisi Sperimentale}
+
+Il capitolo verifica la correttezza rispetto a scikit-learn e misura l'effetto di ciascuna ottimizzazione: confronto tra le varianti, scalabilità con i thread e con il numero di punti, dimensione delle foglie del Ball Tree ed effetto della dimensionalità.
+
+\subsection*{Capitolo 7 --- Limiti e Sviluppi Possibili}
+
+Il capitolo discute i limiti della soluzione, a partire dalla memoria occupata dagli intorni, e le ottimizzazioni che non sono state realizzate.
+
+\subsection*{Capitolo 8 --- Conclusioni}
+
+Il capitolo riassume i risultati ottenuti e il contributo di ciascuna tecnica.

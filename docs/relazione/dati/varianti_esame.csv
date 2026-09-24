@@ -1,0 +1,10 @@
+variante;tempo;speedup
+scikit-learn, 8 thread;0.3243;3.39
+scikit-learn, 1 thread;0.3244;3.39
+Ball Tree, AVX, 8 thread;0.0490;22.46
+Ball Tree, AVX, 4 thread;0.0479;22.96
+Ball Tree, AVX;0.1213;9.07
+Ball Tree, C;0.1246;8.83
+Ricerca esaustiva, AVX;0.3771;2.92
+Ricerca esaustiva, C;0.8770;1.25
+Versione d'esame;1.1000;1.00

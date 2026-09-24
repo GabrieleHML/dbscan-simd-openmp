@@ -1,0 +1,36 @@
+\chapter{Limiti e Sviluppi Possibili}
+\label{cap:limiti}
+
+\section{Memoria Occupata dagli Intorni}
+
+Il limite principale della formulazione in due fasi è la memoria: gli intorni dei punti core restano in memoria fino all'espansione, per un totale di quattro byte per ogni coppia di punti vicini. Sui dataset con cluster ben definiti usati nelle prove il costo è contenuto, ma quando $\varepsilon$ è grande rispetto alla scala dei dati gli intorni diventano enormi: sul dataset uniforme dell'esame ogni punto ha per vicini tutti gli altri, e 5000 punti richiedono già 100~MB. Con 50.000 punti ne servirebbero 10~GB. scikit-learn condivide lo stesso limite, perché calcola tutti gli intorni in anticipo.
+
+Due varianti ridurrebbero la memoria senza rinunciare al parallelismo:
+
+\begin{itemize}
+    \item memorizzare solo gli archi tra punti core, più per ogni punto non core un solo punto core vicino, e calcolare le componenti connesse con una struttura \emph{union-find}; è l'approccio di diverse implementazioni parallele di DBSCAN e renderebbe parallela anche l'espansione;
+    \item elaborare i punti a blocchi, calcolando e consumando gli intorni di un blocco alla volta, al prezzo di interrogare di nuovo i punti al confine tra blocchi.
+\end{itemize}
+
+\section{La Matrice delle Distanze}
+
+La relazione d'esame proponeva di precalcolare la matrice di tutte le distanze, per non calcolare mai due volte la stessa. Nella formulazione attuale il problema non si pone, perché ogni coppia viene esaminata al più due volte, una per ciascun punto, e le interrogazioni del Ball Tree ne escludono la maggior parte; la matrice richiederebbe inoltre $n^2$ valori, 20~GB in doppia precisione per 50.000 punti. Sfruttare la simmetria, calcolando ogni coppia una sola volta, dimezzerebbe il lavoro della ricerca esaustiva, ma complicherebbe la distribuzione del lavoro tra i thread.
+
+\section{Kernel SIMD}
+
+Il kernel della distanza ha un'unica catena di somme vettoriali: ogni iterazione deve attendere il risultato di \codice{vaddpd} dell'iterazione precedente, con una latenza di quattro cicli sui processori della famiglia Skylake. Mantenere due o quattro accumulatori indipendenti, sommati alla fine, lascerebbe lavorare in parallelo le unità di calcolo e ridurrebbe il costo per dimensioni elevate; richiederebbe però di arrotondare la dimensione a un multiplo di otto o sedici valori. Altre estensioni offrirebbero ulteriori margini, a costo di restringere i processori supportati:
+
+\begin{itemize}
+    \item le istruzioni FMA (\emph{fused multiply-add}) fonderebbero moltiplicazione e somma in un'unica istruzione;
+    \item AVX-512 raddoppierebbe il numero di valori per registro; il processore usato per le misure non la supporta.
+\end{itemize}
+
+Il costo di una chiamata al kernel, attraverso un puntatore a funzione, pesa infine sulle dimensioni piccole: con $d = 2$ una distanza richiede una sola iterazione del ciclo. Un kernel che confronti un punto con un'intera foglia in una sola chiamata ammortizzerebbe questo costo.
+
+\section{Struttura dell'Indice}
+
+Il Ball Tree riduce di molto le distanze calcolate in poche dimensioni, ma la sua efficacia cala al crescere della dimensione (Sezione~\ref{sec:esp-dimensioni}), come per ogni indice spaziale. scikit-learn sceglie automaticamente tra un \emph{k-d tree}, un Ball Tree e la ricerca esaustiva in base ai dati; una scelta analoga, insieme a una suddivisione dei nodi più accurata, per esempio lungo la direzione di massima varianza, migliorerebbe le prestazioni nei casi sfavorevoli. La relazione d'esame citava anche l'R-Tree, suggerito nel lavoro originale su DBSCAN, che è progettato per dati su disco e aggiornamenti dinamici, due esigenze assenti in questo contesto.
+
+\section{Precisione della Variante a 32 Bit}
+
+La variante a 32 bit lavora in singola precisione, come richiesto dal corso. Un punto la cui distanza da un vicino è pari a $\varepsilon$ entro l'errore di arrotondamento può cadere dalla parte opposta rispetto al calcolo in doppia precisione, e cambiare il proprio stato di punto core o di confine. Per questo i test accettano per la variante a 32 bit una piccola percentuale di etichette diverse da quelle di scikit-learn, mentre per quella a 64 bit richiedono l'uguaglianza esatta; nei dataset di prova, generati con valori casuali, il caso non si è mai presentato, ma su dati con coordinate ripetute o $\varepsilon$ pari a una distanza esistente non si può escludere.

@@ -1,0 +1,18 @@
+% Distanze calcolate dal Ball Tree rispetto alla ricerca esaustiva (dati/dimensions.csv)
+\begin{tikzpicture}
+\begin{semilogxaxis}[
+    relazione,
+    height=0.55\textwidth,
+    log basis x=2,
+    xtick={2,4,8,16,32,64,128},
+    xticklabels={2,4,8,16,32,64,128},
+    xlabel={Dimensioni $d$},
+    ylabel={Distanze calcolate (\%)},
+    ymin=0,
+    nodes near coords,
+    nodes near coords style={font=\footnotesize, color=inchiostro, anchor=south,
+        /pgf/number format/.cd, fixed, precision=1, use comma},
+]
+\addplot[serie1, mark=*] table[col sep=comma, x=d, y=percentuale]{\dati{dimensions}};
+\end{semilogxaxis}
+\end{tikzpicture}

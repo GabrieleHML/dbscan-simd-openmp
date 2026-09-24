@@ -1,0 +1,20 @@
+% Tempo relativo al migliore al variare della dimensione delle foglie (dati/leaf_size.csv)
+\begin{tikzpicture}
+\begin{semilogxaxis}[
+    relazione,
+    log basis x=2,
+    xtick={1,4,16,64,256,1024},
+    xticklabels={1,4,16,64,256,1024},
+    xlabel={Punti massimi per foglia (\textit{leaf\_size})},
+    ylabel={Tempo relativo al migliore},
+    ymin=0.9,
+    legend pos=north west,
+]
+\addplot[serie1, mark=*] table[col sep=comma, x=leaf, y=d2]{\dati{leaf_size}};
+\addlegendentry{$n = 20.000$, $d = 2$}
+\addplot[serie2, mark=square*] table[col sep=comma, x=leaf, y=d16]{\dati{leaf_size}};
+\addlegendentry{$n = 40.000$, $d = 16$}
+\addplot[serie3, mark=triangle*, mark size=3pt] table[col sep=comma, x=leaf, y=d64]{\dati{leaf_size}};
+\addlegendentry{$n = 20.000$, $d = 64$}
+\end{semilogxaxis}
+\end{tikzpicture}

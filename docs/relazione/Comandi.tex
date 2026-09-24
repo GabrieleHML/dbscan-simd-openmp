@@ -1,0 +1,96 @@
+%% Comandi e stili comuni a tutta la relazione %%
+
+%% Colori: serie dei grafici (in ordine fisso) e inchiostri secondari %%
+\definecolor{serie1}{HTML}{2A78D6}
+\definecolor{serie2}{HTML}{EB6834}
+\definecolor{serie3}{HTML}{1BAF7A}
+\definecolor{serie4}{HTML}{EDA100}
+\definecolor{inchiostro}{HTML}{52514E}
+\definecolor{muto}{HTML}{898781}
+\definecolor{griglia}{HTML}{E1E0D9}
+\definecolor{asse}{HTML}{C3C2B7}
+\definecolor{sfondocodice}{HTML}{F5F5F3}
+
+%% Dati dei grafici, ricavati dai risultati dei benchmark da scripts/report_data.py %%
+\newcommand{\dati}[1]{dati/#1.csv}
+
+%% Nomi di file, funzioni e opzioni nel testo %%
+\newcommand{\codice}[1]{\texttt{#1}}
+
+%% Estratti di codice %%
+\lstdefinelanguage{nasm}{
+    morekeywords={mov,movsxd,shl,add,sub,neg,jnz,jl,jle,jmp,cmp,test,dec,ret,
+        movaps,movss,movd,movdqa,xorps,subps,mulps,addps,haddps,pshufd,fld,
+        vmovapd,vsubpd,vmulpd,vaddpd,vxorpd,vhaddpd,vextractf128,vzeroupper,
+        vmovd,vpshufd,vinsertf128,vmovdqa},
+    morekeywords=[2]{eax,ecx,edx,esp,esi,rdi,rsi,rdx,xmm0,xmm1,ymm0,ymm1,dword},
+    morecomment=[l]{;},
+    sensitive=false
+}
+\lstset{
+    basicstyle=\ttfamily\footnotesize\linespread{1.0}\selectfont,
+    keywordstyle=\color{serie1}\bfseries,
+    keywordstyle=[2]\color{serie2},
+    commentstyle=\color{muto}\itshape,
+    stringstyle=\color{serie3},
+    backgroundcolor=\color{sfondocodice},
+    frame=single,
+    rulecolor=\color{griglia},
+    framesep=4pt,
+    xleftmargin=4pt,
+    xrightmargin=4pt,
+    columns=fullflexible,
+    keepspaces=true,
+    showstringspaces=false,
+    breaklines=true,
+    tabsize=4,
+    captionpos=b,
+    literate={è}{{\`e}}1 {à}{{\`a}}1 {ò}{{\`o}}1 {ù}{{\`u}}1 {é}{{\'e}}1 {ì}{{\`i}}1
+}
+\renewcommand{\lstlistingname}{Listato}
+\renewcommand{\lstlistlistingname}{Elenco dei listati}
+
+%% Grafici: griglia e assi recessivi, linee sottili %%
+\pgfplotsset{
+    relazione/.style={
+        width=0.95\textwidth,
+        height=0.6\textwidth,
+        axis line style={asse},
+        tick style={asse},
+        grid=major,
+        major grid style={griglia, line width=0.4pt},
+        tick label style={font=\footnotesize, color=inchiostro},
+        label style={font=\small, color=inchiostro},
+        legend style={font=\footnotesize, draw=none, fill=none, text=inchiostro},
+        legend cell align=left,
+        every axis plot/.append style={line width=1.2pt},
+        mark size=2.2pt,
+    },
+}
+
+%% Pseudocodice in italiano %%
+\floatname{algorithm}{Algoritmo}
+\renewcommand{\listalgorithmname}{Elenco degli algoritmi}
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+\algrenewcommand\algorithmicif{\textbf{se}}
+\algrenewcommand\algorithmicthen{\textbf{allora}}
+\algrenewcommand\algorithmicelse{\textbf{altrimenti}}
+\algrenewcommand\algorithmicfor{\textbf{per}}
+\algrenewcommand\algorithmicforall{\textbf{per ogni}}
+\algrenewcommand\algorithmicdo{\textbf{esegui}}
+\algrenewcommand\algorithmicwhile{\textbf{finché}}
+\algrenewcommand\algorithmicreturn{\textbf{restituisci}}
+\algrenewcommand\algorithmicend{\textbf{fine}}
+\algrenewcommand\algorithmicfunction{\textbf{funzione}}
+\algrenewcommand\algorithmicprocedure{\textbf{procedura}}
+\algrenewtext{EndIf}{\algorithmicend\ \algorithmicif}
+\algrenewtext{EndFor}{\algorithmicend\ \algorithmicfor}
+\algrenewtext{EndWhile}{\algorithmicend\ \algorithmicwhile}
+\algrenewtext{EndFunction}{\algorithmicend\ \algorithmicfunction}
+\algrenewtext{EndProcedure}{\algorithmicend\ \algorithmicprocedure}
+
+%% Righe di tabella generate da scripts/report_data.py: \input non si può usare dentro tabular %%
+\makeatletter
+\newcommand{\tabella}[1]{\@@input tabelle/#1.tex }
+\makeatother

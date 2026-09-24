@@ -1,0 +1,109 @@
+\chapter{L'algoritmo DBSCAN}
+\label{cap:dbscan}
+
+\section{Clustering Basato sulla Densità}
+
+DBSCAN (\emph{Density-Based Spatial Clustering of Applications with Noise}) è stato proposto da Ester, Kriegel, Sander e Xu nel 1996~\cite{ester1996}. L'idea è che un cluster sia una regione dello spazio in cui i punti sono più densi che nelle regioni circostanti. La densità è misurata con due parametri: il raggio $\varepsilon$ di un intorno e il numero minimo di punti \textit{MinPts} che l'intorno deve contenere. Dato un dataset $D$ e una distanza $\mathrm{dist}$, si definiscono:
+
+\begin{itemize}
+    \item l'\textbf{$\varepsilon$-intorno} di un punto $p$: $N_\varepsilon(p) = \{\, q \in D \mid \mathrm{dist}(p, q) \le \varepsilon \,\}$, che comprende $p$ stesso;
+    \item \textbf{punto core}: un punto $p$ con $|N_\varepsilon(p)| \ge \mathit{MinPts}$;
+    \item \textbf{direttamente raggiungibile}: $q$ è direttamente raggiungibile per densità da $p$ se $p$ è un punto core e $q \in N_\varepsilon(p)$;
+    \item \textbf{raggiungibile per densità}: $q$ è raggiungibile da $p$ se esiste una catena $p = p_1, \dots, p_k = q$ in cui ogni punto è direttamente raggiungibile dal precedente;
+    \item \textbf{connessi per densità}: $p$ e $q$ sono connessi se esiste un punto $o$ da cui entrambi sono raggiungibili.
+\end{itemize}
+
+Un \textbf{cluster} è un insieme non vuoto di punti, massimale rispetto alla raggiungibilità e i cui punti sono a due a due connessi per densità. I punti di un cluster che non sono core si dicono \textbf{punti di confine} (\emph{border}); i punti che non appartengono ad alcun cluster sono \textbf{rumore} (\emph{noise}). Un punto di confine può essere raggiungibile da due cluster diversi: in quel caso l'appartenenza dipende dall'ordine in cui i punti vengono visitati, come osservano gli stessi autori.
+
+\section{L'Algoritmo Originale}
+
+L'Algoritmo~\ref{alg:originale} riporta lo schema del lavoro originale. Si scorrono i punti e, da ogni punto core non ancora classificato, si fa crescere un nuovo cluster con la procedura \textsc{ExpandCluster}, che usa un insieme di \emph{seed} come frontiera di visita: a ogni passo si estrae un seed, si calcola il suo intorno e, se è un punto core, si aggiungono i vicini non ancora visitati.
+
+\begin{algorithm}[H]
+\caption{DBSCAN nella formulazione di Ester et al.~\cite{ester1996}}
+\label{alg:originale}
+\begin{algorithmic}[1]
+\Require dataset $D$, raggio $\varepsilon$, soglia \textit{MinPts}
+\State $c \gets 0$; tutti i punti sono \textsc{Unclassified}
+\ForAll{$p \in D$}
+    \If{$p$ è \textsc{Unclassified}}
+        \State $S \gets \textsc{RegionQuery}(p, \varepsilon)$
+        \If{$|S| < \mathit{MinPts}$}
+            \State $p \gets \textsc{Noise}$ \Comment{potrà diventare un punto di confine}
+        \Else
+            \State assegna $c$ a tutti i punti di $S$; togli $p$ da $S$
+            \While{$S \neq \emptyset$}
+                \State estrai $q$ da $S$; $R \gets \textsc{RegionQuery}(q, \varepsilon)$
+                \If{$|R| \ge \mathit{MinPts}$}
+                    \ForAll{$r \in R$ \textsc{Unclassified} o \textsc{Noise}}
+                        \State se $r$ è \textsc{Unclassified}, aggiungilo a $S$; assegna $c$ a $r$
+                    \EndFor
+                \EndIf
+            \EndWhile
+            \State $c \gets c + 1$
+        \EndIf
+    \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Ogni punto viene interrogato una sola volta, a parte i punti di rumore che rientrano tra i seed di un cluster, quindi il costo complessivo è $O(n \cdot Q)$, dove $Q$ è il costo di una \textsc{RegionQuery}. Con una ricerca esaustiva $Q = O(n\,d)$ e l'algoritmo diventa quadratico nel numero di punti. Con un indice spaziale $Q$ scende, nei casi favorevoli, a un costo logaritmico più la dimensione dell'intorno; Schubert et al.~\cite{schubert2017} mostrano però che questo vale solo se $\varepsilon$ è piccolo rispetto alla scala dei dati, perché con intorni grandi la dimensione stessa dei risultati rende il costo quadratico.
+
+\section{Convenzioni Adottate}
+
+\subsection*{Etichette}
+
+Il risultato è un vettore di interi con un'etichetta per punto: l'indice del cluster, numerato da 0 nell'ordine in cui i cluster vengono scoperti, oppure $-1$ (\codice{NOISE}) per il rumore. Durante l'elaborazione il valore $-2$ (\codice{UNCLASSIFIED}) indica un punto non ancora raggiunto. È la stessa convenzione di scikit-learn~\cite{sklearn}, il che permette di confrontare i risultati direttamente.
+
+\subsection*{Il parametro MinPts}
+
+\textit{MinPts} conta anche il punto stesso, come nella definizione di $\varepsilon$-intorno e come il parametro \codice{min\_samples} di scikit-learn. Internamente le interrogazioni restituiscono l'intorno \emph{senza} il punto interrogato, che non servirebbe in alcun passo successivo, e la condizione di punto core diventa quindi $|N_\varepsilon(p) \setminus \{p\}| + 1 \ge \mathit{MinPts}$.
+
+\subsection*{Distanza euclidea e confronti al quadrato}
+
+La distanza è quella euclidea, indotta dalla norma~2, in accordo con scikit-learn. Poiché la radice quadrata è monotona crescente, $\mathrm{dist}(p,q) \le \varepsilon$ equivale a $\mathrm{dist}(p,q)^2 \le \varepsilon^2$: i kernel calcolano quindi la \textbf{distanza al quadrato} e la radice viene estratta solo dove serve una distanza vera, cioè nel Ball Tree per i raggi delle sfere e per i test di esclusione. Una norma diversa, per esempio la norma~1 (distanza di Manhattan), individuerebbe intorni diversi e quindi cluster diversi: i risultati non sarebbero più confrontabili con quelli di riferimento.
+
+\subsection*{Assegnazione dei punti di confine}
+
+Quando un punto di confine è raggiungibile da più cluster, l'implementazione lo assegna al \textbf{primo} cluster che lo raggiunge, come scikit-learn. L'Algoritmo~\ref{alg:originale}, invece, assegna al nuovo cluster tutti i punti dell'intorno iniziale, anche quelli già attribuiti a un cluster precedente. Entrambe le scelte sono legittime, ma la prima rende il risultato identico a quello di scikit-learn e quindi verificabile in modo esatto.
+
+\section{Formulazione in Due Fasi}
+\label{sec:due-fasi}
+
+Nell'Algoritmo~\ref{alg:originale} le interrogazioni sono intrecciate con l'espansione: quale punto interrogare dopo dipende dal risultato delle interrogazioni precedenti. Questo lascia poco spazio al parallelismo, che nella versione d'esame era stato cercato all'interno delle singole interrogazioni (Capitolo~\ref{cap:openmp}). L'implementazione separa invece il lavoro in due fasi (Algoritmo~\ref{alg:due-fasi}):
+
+\begin{enumerate}
+    \item \textbf{Fase 1, intorni}: si calcola l'intorno di ogni punto e si stabilisce se è un punto core. Le interrogazioni sono indipendenti tra loro e possono essere eseguite in parallelo. Si conservano solo gli intorni dei punti core, gli unici che l'espansione leggerà.
+    \item \textbf{Fase 2, espansione}: i cluster crescono con una visita in profondità del grafo che ha per nodi i punti e per archi le relazioni di raggiungibilità diretta, usando una pila. Nessuna distanza viene più calcolata.
+\end{enumerate}
+
+\begin{algorithm}[H]
+\caption{DBSCAN in due fasi, come implementato in \codice{src/dbscan.c}}
+\label{alg:due-fasi}
+\begin{algorithmic}[1]
+\Require dataset $D$ di $n$ punti, raggio $\varepsilon$, soglia \textit{MinPts}
+\Ensure etichette $L[0..n)$
+\ForAll{$p \in D$} \Comment{Fase 1, in parallelo}
+    \State $N[p] \gets \textsc{RegionQuery}(p, \varepsilon) \setminus \{p\}$
+    \State $\mathit{core}[p] \gets |N[p]| + 1 \ge \mathit{MinPts}$
+    \If{\textbf{non} $\mathit{core}[p]$} \State scarta $N[p]$ \EndIf
+\EndFor
+\State $L \gets$ \textsc{Unclassified}; $c \gets 0$ \Comment{Fase 2, sequenziale}
+\For{$p \gets 0$ \textbf{to} $n-1$}
+    \If{$L[p] =$ \textsc{Unclassified} \textbf{e} $\mathit{core}[p]$}
+        \State $L[p] \gets c$; inserisci $p$ nella pila
+        \While{la pila non è vuota}
+            \State $q \gets$ estrai dalla pila \Comment{sempre un punto core}
+            \ForAll{$r \in N[q]$ con $L[r] =$ \textsc{Unclassified}}
+                \State $L[r] \gets c$
+                \If{$\mathit{core}[r]$} \State inserisci $r$ nella pila \EndIf
+            \EndFor
+        \EndWhile
+        \State $c \gets c + 1$
+    \EndIf
+\EndFor
+\State i punti rimasti \textsc{Unclassified} diventano \textsc{Noise}
+\end{algorithmic}
+\end{algorithm}
+
+La seconda fase produce gli stessi cluster dell'algoritmo originale: un cluster nasce dal primo punto core non ancora etichettato, nello stesso ordine di scansione, e contiene tutti i punti raggiungibili da esso, perché la visita prosegue solo attraverso i punti core ed etichetta ogni loro vicino. Anche il numero di interrogazioni resta lo stesso, una per punto. Il prezzo è la memoria: gli intorni dei punti core restano in memoria fino alla fine, per un totale proporzionale alla somma delle loro dimensioni. È la stessa scelta di scikit-learn, che calcola tutti gli intorni prima dell'espansione, e se ne discutono i limiti nel Capitolo~\ref{cap:limiti}.
