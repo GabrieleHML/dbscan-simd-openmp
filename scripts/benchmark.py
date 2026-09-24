@@ -166,8 +166,8 @@ def scaling(w: Writer, reps: int):
 
 
 def leaf_size(w: Writer, reps: int):
-    """Effect of the leaf size of the ball tree."""
-    for n, d in [(40000, 16), (20000, 64)]:
+    """Effect of the leaf size of the ball tree, in few and in many dimensions."""
+    for n, d in [(20000, 2), (40000, 16), (20000, 64)]:
         path, eps = dataset("blobs", n, d)
         for leaf in [1, 2, 4, 8, 16, 32, 64, 128, 300, 1000]:
             w.add("blobs", n, d, eps, "dbscan64",
@@ -199,11 +199,16 @@ EXPERIMENTS = {"variants": variants, "threads": threads, "scaling": scaling, "le
 
 
 def environment() -> dict:
-    cpu = next((line.split(":", 1)[1].strip() for line in open("/proc/cpuinfo") if line.startswith("model name")), "")
+    cpuinfo = open("/proc/cpuinfo").read().splitlines()
+    field = lambda name: next((l.split(":", 1)[1].strip() for l in cpuinfo if l.startswith(name)), "")  # noqa: E731
     version = lambda cmd: subprocess.run(cmd, capture_output=True, text=True).stdout.splitlines()[0]  # noqa: E731
-    return {"date": date.today().isoformat(), "cpu": cpu, "logical_cpus": os.cpu_count(),
-            "os": platform.platform(), "gcc": version(["gcc", "--version"]),
-            "nasm": version([os.environ.get("NASM", "nasm"), "-v"]),
+    try:
+        system = platform.freedesktop_os_release()["PRETTY_NAME"]
+    except OSError:
+        system = platform.system()
+    return {"date": date.today().isoformat(), "cpu": field("model name"), "cores": int(field("cpu cores") or 0),
+            "logical_cpus": os.cpu_count(), "os": f"{system}, Linux {platform.release()}",
+            "gcc": version(["gcc", "--version"]), "nasm": version([os.environ.get("NASM", "nasm"), "-v"]),
             "python": platform.python_version(), "numpy": np.__version__, "scikit-learn": sklearn.__version__}
 
 

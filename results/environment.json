@@ -1,0 +1,12 @@
+{
+  "date": "2026-09-24",
+  "cpu": "Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz",
+  "cores": 4,
+  "logical_cpus": 8,
+  "os": "Fedora Linux 44 (KDE Plasma Desktop Edition), Linux 7.2.5-200.fc44.x86_64",
+  "gcc": "gcc (GCC) 16.2.1 20260819 (Red Hat 16.2.1-2)",
+  "nasm": "NASM version 2.16.03 compiled on Jul 22 2024",
+  "python": "3.12.14",
+  "numpy": "2.5.3",
+  "scikit-learn": "1.9.1"
+}

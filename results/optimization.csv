@@ -1,0 +1,9 @@
+experiment,dataset,n,d,eps,min_pts,program,index,simd,threads,leaf_size,opt,time,time_min,time_max,index_time,neighbour_time,expand_time,distance_evals,tree_depth,clusters,noise_points,reps
+optimization,blobs,20000,16,3.871889,5,dbscan64,linear,False,1,,-O0,16.618199,16.58177,16.623466,0.0,16.612404,0.005794,399980000,0,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,linear,True,1,,-O0,2.949336,2.929547,3.01935,0.0,2.943554,0.005781,399980000,0,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,balltree,False,1,32,-O0,3.269335,3.260911,3.28298,0.082781,3.180742,0.005811,66992612,23,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,balltree,True,1,32,-O0,0.766819,0.765812,0.769037,0.031526,0.72951,0.005783,66992612,23,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,linear,False,1,,-O2,3.131098,3.116962,3.14846,0.0,3.128538,0.00256,399980000,0,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,linear,True,1,,-O2,1.889217,1.843971,1.898882,0.0,1.886619,0.002598,399980000,0,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,balltree,False,1,32,-O2,0.690518,0.687939,0.695505,0.021078,0.666909,0.002531,66992612,23,8,1262,5
+optimization,blobs,20000,16,3.871889,5,dbscan64,balltree,True,1,32,-O2,0.471069,0.469515,0.481648,0.014917,0.453536,0.002615,66992612,23,8,1262,5

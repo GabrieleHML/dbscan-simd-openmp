@@ -72,7 +72,9 @@ bench: x64 exam
 figures:
 	$(MAKE) -C docs/diagrams
 
+# Tables and charts are regenerated from results/, so `make bench report` updates every number
 report: figures
+	$(PYTHON) scripts/report_data.py
 	cd docs/relazione && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
 	cp docs/relazione/main.pdf docs/relazione.pdf
 

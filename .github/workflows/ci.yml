@@ -1,0 +1,27 @@
+# Continuous integration: build the four variants and compare them with scikit-learn
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test (x86-32 + x86-64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install NASM, 32-bit toolchain and Python packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y nasm gcc-multilib python3-numpy python3-sklearn
+      - run: make all
+      - run: make test
