@@ -80,9 +80,10 @@ runs in parallel with OpenMP tasks. A query drops the nodes whose sphere is disj
 and takes all the points of the nodes entirely inside it without computing their distances. Points are
 copied in leaf order, so scanning a leaf reads contiguous memory: 20-40% faster.
 
-**SIMD kernels.** The squared distance is computed by a NASM kernel with 4 partial sums. The loop has no
-remainder, because every row is zero-padded to a multiple of 4 values and aligned to the register size (16
-bytes for SSE, 32 for AVX). The kernels follow the calling conventions:
+**SIMD kernels.** The squared distance is computed by a NASM kernel that keeps 4 partial sums, one per lane,
+in a single accumulator register, and adds them up (horizontal reduction) only once, after the loop. The loop
+has no remainder, because every row is zero-padded to a multiple of 4 values and aligned to the register size
+(16 bytes for SSE, 32 for AVX). The kernels follow the calling conventions:
 
 - **cdecl** on x86-32: the result is returned in `st(0)`, through a stack slot rather than a global, so
   threads can share the kernel.
@@ -205,8 +206,9 @@ benchmarks and CI. Comments and identifiers are now in English.
 - **Memory**: the neighbourhoods of the core points are kept until the expansion, like in scikit-learn. With
   an `Eps` that covers most of the dataset they take `O(n²)` memory. A union-find over core points would avoid
   that and make the expansion parallel too.
-- **Kernels**: a single accumulator chains every addition to the previous one; 2-4 independent accumulators,
-  FMA or AVX-512 would go further, at the cost of CPU compatibility.
+- **Kernels**: the 4 partial sums (one per lane) live in a single accumulator register, so across loop
+  iterations each add still chains to the previous one; 2-4 independent accumulator registers, FMA or AVX-512
+  would break that chain and go further, at the cost of CPU compatibility.
 - **Index**: like any spatial index, the ball tree prunes less as the dimensions grow. A k-d tree for low
   dimensions, or an automatic choice as in scikit-learn, would help.
 
